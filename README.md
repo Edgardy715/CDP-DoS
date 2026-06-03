@@ -153,18 +153,6 @@ SW1         : VTP Server | STP Root Bridge | Priority 32769 | MAC 0cb5.a4d7.0000
 SW2         : VTP Client
 VLAN 10     : RED_LOCAL — 192.168.10.0/24
 ```
-
----
-
-## 📸 Capturas de Pantalla
-
-| Momento | Descripción |
-|---|---|
-| Pre-ataque | `show cdp neighbors` muestra solo los vecinos legítimos. |
-| Durante el ataque | Contador avanza ~100 pkt/s en la terminal de Kali. |
-| Impacto en el switch | Tabla CDP desbordada y CPU elevada en `show processes cpu`. |
-| Post-mitigación | `show cdp` devuelve `% CDP is not enabled`. |
-
 ---
 
 ## 🛡️ Contramedidas
