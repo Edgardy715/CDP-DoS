@@ -1,0 +1,11 @@
+!!!!!!!!!!!!!!!! Mitigacion de CDP DoS
+en
+conf term
+!!!! Deshabilitar CDP globalmente
+no cdp run
+
+!!!! O solo en el puerto donde esta el atacante
+interface GigabitEthernet0/1
+no cdp enable
+exit
+do wr
