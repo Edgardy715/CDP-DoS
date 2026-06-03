@@ -2,30 +2,34 @@
 
 # CDP DoS Flood Attack
 
-> **Autor:** Edgardy Olivero | **Matricula:** 20250704  
-> **Laboratorio:** EGALDITO_LAB | **Herramienta:** Python 3 + Scapy  
+> **Autor:** Edgardy Olivero | **Matrícula:** 20250704
+> **Laboratorio:** EGALDITO\_LAB | **Herramienta:** Python 3 + Scapy
 > **Repositorio:** [github.com/Edgardy715/CDP-DoS](https://github.com/Edgardy715/CDP-DoS)
 
 ---
 
-## Objetivo del Laboratorio
+## 📋 Objetivo del Laboratorio
 
-Demostrar como un atacante puede agotar los recursos de CPU y memoria de switches Cisco mediante la inundacion masiva del protocolo CDP (Cisco Discovery Protocol), causando una condicion de Denegacion de Servicio (DoS) sin necesidad de credenciales ni acceso previo al dispositivo. CDP usa la multicast de capa 2 `01:00:0C:CC:CC:CC`, por lo que cualquier equipo en el mismo dominio L2 puede recibir y generar trafico CDP [web:59][web:62][web:64][web:68].
+Demostrar cómo un atacante puede agotar los recursos de CPU y memoria de switches Cisco mediante la inundación masiva del protocolo CDP (Cisco Discovery Protocol), causando una condición de Denegación de Servicio (DoS) sin necesidad de credenciales ni acceso previo al dispositivo.
 
-## Objetivo del Script
-
-Generar y transmitir paquetes CDP sinteticos a alta velocidad hacia la direccion multicast `01:00:0c:cc:cc:cc`, utilizando MACs de origen y Device-IDs unicos y aleatorios en cada iteracion. El script fuerza al switch victima a almacenar miles de entradas CDP en su tabla de vecinos hasta saturar la memoria disponible y elevar el uso de CPU [web:59][web:64][web:65].
+CDP opera sobre la multicast de capa 2 `01:00:0C:CC:CC:CC`, lo que significa que cualquier equipo conectado al mismo dominio L2 puede generar y recibir tráfico CDP sin autenticación. Este ataque no requiere subinterfaz VLAN ya que actúa directamente sobre la interfaz física `eth0` en la capa 2 nativa.
 
 ---
 
-## Estructura del Repositorio
+## 🎯 Objetivo del Script
+
+Generar y transmitir paquetes CDP sintéticos a alta velocidad hacia la dirección multicast `01:00:0c:cc:cc:cc`, utilizando MACs de origen y Device-IDs únicos y aleatorios en cada iteración. El script fuerza al switch víctima a almacenar miles de entradas CDP en su tabla de vecinos hasta saturar la memoria disponible y elevar el uso de CPU.
+
+---
+
+## 📁 Estructura del Repositorio
 
 ```text
 CDP-DoS/
 ├── Script/
-│   └── cdp-DoS.py                        <- Script principal del ataque
+│   └── cdp-DoS.py                        ← Script principal del ataque
 ├── Mitigacion/
-│   └── Mitigacion-CDP-DoS.ios            <- Comandos de contramedida (Cisco IOS)
+│   └── Mitigacion-CDP-DoS.ios            ← Comandos de contramedida (Cisco IOS)
 ├── Conf-Topologia/
 │   └── scripts_bases_configs/
 │       ├── R1.ios
@@ -38,34 +42,32 @@ CDP-DoS/
 
 ---
 
-## Parametros del Script
+## ⚙️ Parámetros del Script
 
-| Variable | Valor | Descripcion |
+| Variable | Valor | Descripción |
 |---|---|---|
-| `IFACE` | `eth0` | Interfaz del atacante. |
-| `INTERVALO` | `0.01` | Segundos entre paquetes, equivalente a ~100 pkt/s. |
-| `dst` | `01:00:0c:cc:cc:cc` | Multicast estandar de CDP. |
-| `LLC dsap` | `0xAA` | DSAP/SSAP para encapsulacion SNAP. |
+| `IFACE` | `eth0` | Interfaz física directa (sin subinterfaz). CDP opera en capa 2 nativa. |
+| `INTERVALO` | `0.01` | Segundos entre paquetes (~100 pkt/s). |
+| `dst` | `01:00:0c:cc:cc:cc` | Dirección multicast estándar de CDP. |
+| `LLC dsap/ssap` | `0xAA` | Encapsulación SNAP requerida por CDP. |
 | `SNAP OUI` | `0x00000C` | OUI de Cisco. |
 | `SNAP code` | `0x2000` | Protocol ID de CDP. |
-| `rand_mac()` | `02:xx:xx:xx:xx:xx` | MAC origen aleatoria por iteracion. |
+| `rand_mac()` | `02:xx:xx:xx:xx:xx` | MAC origen aleatoria por iteración. |
+
+> **Nota:** A diferencia de los ataques DHCP y ARP de este laboratorio (que usan `eth0.10`), CDP es un protocolo de capa 2 puro que no viaja dentro de VLANs etiquetadas. Por eso se usa `eth0` directamente.
 
 ---
 
-## Requisitos
+## 🛠️ Requisitos
 
 ```bash
-# Sistema
-Kali Linux o cualquier distro Linux con acceso root
+# Sistema operativo
+Kali Linux o cualquier distribución Linux con acceso root
 
 # Dependencia Python
 pip install scapy
 
-# Scapy CDP contrib
-from scapy.all import *
-load_contrib("cdp")
-
-# Verificar interfaz activa
+# Verificar que la interfaz esté activa y conectada al switch
 ip link show eth0
 
 # Ejecutar
@@ -74,37 +76,37 @@ sudo python3 Script/cdp-DoS.py
 
 ---
 
-## Funcionamiento del Script
+## 🔍 Funcionamiento del Script
 
-### Flujo de ejecucion
+### Flujo de ejecución
 
 ```text
-1. Verifica ejecucion como root.
+1. Verifica ejecución como root.
 2. Bucle infinito hasta Ctrl+C.
-3. En cada iteracion:
+3. En cada iteración:
    a. Genera una MAC origen aleatoria.
-   b. Construye un paquete CDP multicapa.
-   c. Envia el frame con sendp() hacia 01:00:0c:cc:cc:cc.
+   b. Construye un paquete CDP multicapa (Ether / LLC / SNAP / CDPv2).
+   c. Envía el frame con sendp() hacia 01:00:0c:cc:cc:cc.
    d. Incrementa el contador de paquetes.
    e. Imprime paquetes/segundo en tiempo real.
-4. Ctrl+C -> muestra el total enviado.
+4. Ctrl+C → muestra el total enviado.
 ```
 
 ### Estructura del paquete generado
 
 ```text
-[Ether]  src=MAC_aleatoria  dst=01:00:0c:cc:cc:cc
-  [LLC]  dsap=0xAA  ssap=0xAA  ctrl=0x03
+[Ether]   src=MAC_aleatoria   dst=01:00:0c:cc:cc:cc
+  [LLC]   dsap=0xAA  ssap=0xAA  ctrl=0x03
     [SNAP]  OUI=0x00000C  code=0x2000
       [CDPv2_HDR]
-        [CDPMsgDeviceID]       val="device-{mac}"
-        [CDPMsgPortID]         iface="GigabitEthernet0/0"
+        [CDPMsgDeviceID]        val="device-{mac}"
+        [CDPMsgPortID]          iface="GigabitEthernet0/0"
         [CDPMsgCapabilities]
-        [CDPMsgPlatform]       val="cisco WS-C2960"
+        [CDPMsgPlatform]        val="cisco WS-C2960"
         [CDPMsgSoftwareVersion] val="Cisco IOS 15.2"
 ```
 
-### Verificacion en el switch durante el ataque
+### Verificación en el switch durante el ataque
 
 ```cisco
 SW2# show cdp neighbors
@@ -112,68 +114,69 @@ SW2# show cdp neighbors detail | count Device ID
 SW2# show processes cpu sorted | head
 ```
 
-> Exito confirmado: la tabla CDP crece de forma anormal y la CPU del switch aumenta de forma significativa.
+> **Éxito confirmado:** la tabla CDP crece de forma anormal y el uso de CPU del switch aumenta significativamente.
 
 ---
 
-## Documentacion de la Red
+## 🌐 Documentación de la Red
 
-### Topologia del Laboratorio
+### Topología del Laboratorio
 
 ```text
 +------------------+        +---------------------+        +---------------------+
 |   Kali Linux     |        |        SW2          |        |        SW1          |
-|   (Atacante)     |<------>|  GNS3 vIOS-L2       |<------>|  GNS3 vIOS-L2      |
-|     eth0         |  Gi0/1 | VTP Client          |  Gi0/0 | VTP Server         |
-| 0c:bf:c5:c2:0000 |        | 0cc0.7fb8.0000      |        | 0cb5.a4d7.0000    |
+|   (Atacante)     |◄──────►|  GNS3 vIOS-L2       |◄──────►|  GNS3 vIOS-L2       |
+|     eth0         | Gi0/1  | VTP Client          | Gi0/0  | VTP Server          |
+| 0c:bf:c5:c2:00:00|        | 0cc0.7fb8.0000      |        | 0cb5.a4d7.0000      |
 +------------------+        +---------------------+        +---------------------+
-                                                                   |  Gi0/1
-                                                        +---------------------+
-                                                        |         R1          |
-                                                        |  192.168.10.1/24    |
-                                                        +---------------------+
+                                                                    | Gi0/1
+                                                         +---------------------+
+                                                         |         R1          |
+                                                         |  192.168.10.1/24    |
+                                                         +---------------------+
 ```
 
-> Topologia completa en `Topologia/Topologia.png`
+> Topología completa disponible en `Topologia/Topologia.png`
 
 ### Tabla de Direccionamiento
 
-| Dispositivo | Interfaz | VLAN | IP / Mascara | MAC | Rol |
+| Dispositivo | Interfaz | VLAN | IP / Máscara | MAC | Rol |
 |---|---|---|---|---|---|
-| Kali Linux | eth0 | 1 | dinamica | `0c:bf:c5:c2:00:00` | Atacante |
-| SW1 | Gi0/0 (trunk) | 1,10 | — | `0cb5.a4d7.0000` | VTP Server / Root |
-| SW2 | Gi0/0 (trunk) | 1,10 | — | `0cc0.7fb8.0000` | VTP Client |
-| R1 | Gi0/0 | 10 | 192.168.10.1/24 | — | Gateway / DHCP |
+| Kali Linux | `eth0` | 1 (nativa) | dinámica | `0c:bf:c5:c2:00:00` | Atacante |
+| SW1 | Gi0/0 (trunk) | 1, 10 | — | `0cb5.a4d7.0000` | VTP Server / Root Bridge |
+| SW2 | Gi0/1 (acceso) | 1, 10 | — | `0cc0.7fb8.0000` | VTP Client |
+| R1 | Gi0/0 | 10 | 192.168.10.1/24 | — | Gateway / DHCP Server |
 
 ```text
-VTP Domain: EGALDITO_LAB | SW1: VTP Server | SW2: VTP Client
-STP Root Bridge: SW1 | Priority: 32769 | MAC: 0cb5.a4d7.0000
-VLAN 10: RED_LOCAL (192.168.10.0/24)
+VTP Domain  : EGALDITO_LAB
+SW1         : VTP Server | STP Root Bridge | Priority 32769 | MAC 0cb5.a4d7.0000
+SW2         : VTP Client
+VLAN 10     : RED_LOCAL — 192.168.10.0/24
 ```
 
 ---
 
-## Capturas de Pantalla
+## 📸 Capturas de Pantalla
 
-| Momento | Descripcion |
+| Momento | Descripción |
 |---|---|
-| Pre-ataque | `show cdp neighbors` muestra pocos vecinos legitimos. |
-| Durante ataque | Contador de paquetes avanza ~100 pkt/s. |
-| Impacto en switch | Tabla CDP desbordada y CPU elevada. |
-| Post-mitigacion | `show cdp` muestra `% CDP is not enabled`. |
+| Pre-ataque | `show cdp neighbors` muestra solo los vecinos legítimos. |
+| Durante el ataque | Contador avanza ~100 pkt/s en la terminal de Kali. |
+| Impacto en el switch | Tabla CDP desbordada y CPU elevada en `show processes cpu`. |
+| Post-mitigación | `show cdp` devuelve `% CDP is not enabled`. |
 
 ---
 
-## Contramedidas
+## 🛡️ Contramedidas
 
-El archivo de mitigacion esta en `Mitigacion/Mitigacion-CDP-DoS.ios`.
+El archivo de mitigación está en `Mitigacion/Mitigacion-CDP-DoS.ios`.
 
-### 1. Deshabilitar CDP globalmente
+### 1. Deshabilitar CDP globalmente (recomendado si no se usa)
 
 ```cisco
 en
 conf term
-no cdp run
+ no cdp run
 do wr
 ```
 
@@ -188,29 +191,26 @@ exit
 do wr
 ```
 
-### Verificacion
+### Verificación
 
 ```cisco
 SW2# show cdp
 % CDP is not enabled
 ```
 
-> CDP puede deshabilitarse globalmente con `no cdp run` o por interfaz con `no cdp enable`, que son las medidas clasicas para reducir la exposicion a ataques CDP [web:60][web:63][web:65].
+> `no cdp run` desactiva CDP en todo el switch. `no cdp enable` lo desactiva por interfaz, permitiendo mantener CDP activo en otros puertos donde sí sea necesario (por ejemplo, hacia otros switches Cisco).
 
 ---
 
-## Video Demostrativo
+## 🎬 Video Demostrativo
 
-**Lista de reproduccion EGALDITO_LAB:** [Layer 2 Network Attacks](https://www.youtube.com/@Edgardy715)
+**Lista de reproducción EGALDITO\_LAB — Layer 2 Network Attacks:**
+[https://www.youtube.com/playlist?list=PL24FUvJVT9rBmlkIyA1pGp28VHhh3JK1j](https://www.youtube.com/playlist?list=PL24FUvJVT9rBmlkIyA1pGp28VHhh3JK1j)
 
-El video incluye:
-- Topologia visible con nombre y matricula.
-- Fecha y hora en pantalla.
-- Camara y voz del autor.
-- Demostracion del ataque en tiempo real.
-- Aplicacion y verificacion de la contramedida.
+**Video de este ataque:**
+[https://youtu.be/7fxeLDbxr44](https://youtu.be/7fxeLDbxr44)
 
 ---
 
-*Laboratorio desarrollado con fines estrictamente educativos en entorno GNS3 aislado.*  
-*Autor: Edgardy Olivero | 20250704 | EGALDITO_LAB*
+*Laboratorio desarrollado con fines estrictamente educativos en entorno GNS3 aislado.*
+*Autor: Edgardy Olivero | 20250704 | EGALDITO\_LAB*
